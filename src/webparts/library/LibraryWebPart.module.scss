@@ -393,6 +393,7 @@
   align-items: center;
   z-index: 1000;
   padding: 20px;
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
 }
 
@@ -788,4 +789,120 @@
   .folderIcon, .folderArrow {
     display: none;
   }
+}
+
+/* Rich Text Editor Modal */
+.richTextEditorModal {
+  background-color: white;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 700px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+  border: 2px solid #cfae70;
+}
+
+.editorToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 12px 16px;
+  background-color: #f9f9f9;
+  border-bottom: 1px solid #e1e1e1;
+  border-radius: 4px 4px 0 0;
+}
+
+.toolbarButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background-color: #ffffff;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+
+  &:hover {
+    background-color: #cfae70;
+    border-color: #cfae70;
+    color: #fff;
+  }
+
+  &.active {
+    background-color: #cfae70;
+    border-color: #cfae70;
+    color: #fff;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+  }
+}
+
+.toolbarSeparator {
+  width: 1px;
+  height: 36px;
+  background-color: #d0d0d0;
+  margin: 0 8px;
+}
+
+.editorContainer {
+  padding: 16px;
+}
+
+.richTextArea {
+  min-height: 300px;
+  max-height: 400px;
+  padding: 16px;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-y: auto;
+  background-color: #fff;
+  outline: none;
+
+  &:focus {
+    border-color: #cfae70;
+    box-shadow: 0 0 4px rgba(207, 174, 112, 0.3);
+  }
+
+  ul, ol {
+    margin: 8px 0;
+    padding-left: 24px;
+  }
+
+  li {
+    margin-bottom: 4px;
+  }
+
+  h1, h2, h3 {
+    color: #cfae70;
+    margin: 16px 0 8px 0;
+  }
+
+  h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+  h3 { font-size: 18px; }
+
+  p {
+    margin: 8px 0;
+  }
+}
+
+.editorHint {
+  font-size: 12px;
+  color: #666;
+  margin-top: 8px;
+  font-style: italic;
+  font-family: Arial, sans-serif;
 }

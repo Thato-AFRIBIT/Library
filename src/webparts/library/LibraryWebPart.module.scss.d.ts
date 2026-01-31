@@ -56,7 +56,15 @@ declare interface IUnifiedResourcesWebPartStyles {
   articleBody: string;
   articleImage: string;
   articleContent: string;
-}
 
+  // Rich Text Editor classes
+  richTextEditorModal: string;
+  editorToolbar: string;
+  toolbarButton: string;
+  toolbarSeparator: string;
+  editorContainer: string;
+  richTextArea: string;
+  editorHint: string;
+}
 declare const styles: IUnifiedResourcesWebPartStyles;
 export = styles;

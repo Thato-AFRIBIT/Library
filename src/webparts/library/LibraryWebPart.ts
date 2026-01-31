@@ -74,15 +74,6 @@ class ArticleDialog {
   private _dialogElement: HTMLElement | null = null;
   private _overlayElement: HTMLElement | null = null;
 
-  private _formatText(text: string): string {
-    if (!text) return "";
-    let formatted = text;
-    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    formatted = formatted.replace(/^\s*[*|-]\s+(.*)$/gm, '<div style="margin-left:20px; display: list-item; list-style-type: disc;">$1</div>');
-    formatted = formatted.replace(/^\s*(\d+)\.\s+(.*)$/gm, '<div style="margin-left:20px; display: list-item; list-style-type: decimal;">$2</div>');
-    return formatted.replace(/\n/g, '<br/>');
-  }
-
   private render(): void {
     // Create overlay
     this._overlayElement = document.createElement('div');
@@ -106,7 +97,7 @@ class ArticleDialog {
         <div class="${styles.articleBody}">
           ${this.image ? `<img src="${this.image}" class="${styles.articleImage}"/>` : ''}
           <div class="${styles.articleContent}">
-            ${this._formatText(this.content)}
+            ${this.content || '<p>No help content configured.</p>'}
           </div>
         </div>
       </div>`;
@@ -157,6 +148,7 @@ export default class UnifiedResourcesWebPart extends BaseClientSideWebPart<IUnif
 
   private _propertyPaneObserver: MutationObserver | null = null;
   private _addLinkModal: HTMLDivElement | null = null;
+  private _richTextEditorModal: HTMLDivElement | null = null;
 
   // Section-specific data storage (including main section which is 'main')
   private sectionData: { [sectionId: string]: {
@@ -318,9 +310,141 @@ export default class UnifiedResourcesWebPart extends BaseClientSideWebPart<IUnif
 
   private _showHelpDialog(): void {
     const dialog = new ArticleDialog();
-    dialog.content = this.properties.helpArticleHtml || "No help content configured. Please add content in the property pane.";
+    dialog.content = this.properties.helpArticleHtml || "";
     dialog.image = this.properties.helpImageUrl;
     dialog.show().catch((e: Error) => console.error('Error showing help dialog:', e));
+  }
+
+  private _showRichTextEditorModal(): void {
+    if (this._richTextEditorModal) {
+      document.body.removeChild(this._richTextEditorModal);
+    }
+
+    this._richTextEditorModal = document.createElement('div');
+    this._richTextEditorModal.className = styles.modalOverlay;
+
+    this._richTextEditorModal.innerHTML = `
+      <div class="${styles.richTextEditorModal}">
+        <div class="${styles.modalHeader}">
+          <h3 style="font-family: Arial, sans-serif;">Edit Help Content</h3>
+          <button class="${styles.modalClose}" id="closeEditorModal">&times;</button>
+        </div>
+        <div class="${styles.editorToolbar}">
+          <button type="button" class="${styles.toolbarButton}" data-command="bold" title="Bold">
+            <strong>B</strong>
+          </button>
+          <button type="button" class="${styles.toolbarButton}" data-command="italic" title="Italic">
+            <em>I</em>
+          </button>
+          <button type="button" class="${styles.toolbarButton}" data-command="underline" title="Underline">
+            <u>U</u>
+          </button>
+          <div class="${styles.toolbarSeparator}"></div>
+          <button type="button" class="${styles.toolbarButton}" data-command="insertUnorderedList" title="Bullet List">
+            <svg viewBox="0 0 24 24"><circle cx="4" cy="6" r="2"/><circle cx="4" cy="12" r="2"/><circle cx="4" cy="18" r="2"/><line x1="9" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2"/><line x1="9" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2"/><line x1="9" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2"/></svg>
+          </button>
+          <button type="button" class="${styles.toolbarButton}" data-command="insertOrderedList" title="Numbered List">
+            <svg viewBox="0 0 24 24"><text x="2" y="8" font-size="8" fill="currentColor">1.</text><text x="2" y="14" font-size="8" fill="currentColor">2.</text><text x="2" y="20" font-size="8" fill="currentColor">3.</text><line x1="12" y1="6" x2="22" y2="6" stroke="currentColor" stroke-width="2"/><line x1="12" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"/><line x1="12" y1="18" x2="22" y2="18" stroke="currentColor" stroke-width="2"/></svg>
+          </button>
+          <div class="${styles.toolbarSeparator}"></div>
+          <button type="button" class="${styles.toolbarButton}" data-command="formatBlock" data-value="h2" title="Heading">
+            <strong>H</strong>
+          </button>
+          <button type="button" class="${styles.toolbarButton}" data-command="formatBlock" data-value="p" title="Paragraph">
+            <span>¶</span>
+          </button>
+        </div>
+        <div class="${styles.editorContainer}">
+          <div id="richTextEditor" class="${styles.richTextArea}" contenteditable="true"></div>
+          <div class="${styles.editorHint}">Select text and use the toolbar buttons to format your content.</div>
+        </div>
+        <div class="${styles.modalBody}">
+          <div class="${styles.modalActions}">
+            <button type="button" class="${styles.cancelButton}" id="cancelEditorButton">Cancel</button>
+            <button type="button" class="${styles.saveButton}" id="saveContentButton">Save Content</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(this._richTextEditorModal);
+
+    // Get elements
+    const closeButton = this._richTextEditorModal.querySelector('#closeEditorModal') as HTMLButtonElement;
+    const cancelButton = this._richTextEditorModal.querySelector('#cancelEditorButton') as HTMLButtonElement;
+    const saveButton = this._richTextEditorModal.querySelector('#saveContentButton') as HTMLButtonElement;
+    const editor = this._richTextEditorModal.querySelector('#richTextEditor') as HTMLDivElement;
+    const toolbarButtons = this._richTextEditorModal.querySelectorAll(`.${styles.toolbarButton}`);
+
+    // Load existing content
+    if (this.properties.helpArticleHtml) {
+      editor.innerHTML = this.properties.helpArticleHtml;
+    }
+
+    // Setup toolbar button handlers
+    toolbarButtons.forEach(button => {
+      button.addEventListener('click', (e: Event) => {
+        e.preventDefault();
+        const btn = e.currentTarget as HTMLButtonElement;
+        const command = btn.getAttribute('data-command');
+        const value = btn.getAttribute('data-value');
+
+        if (command) {
+          editor.focus();
+          if (command === 'formatBlock' && value) {
+            document.execCommand(command, false, value);
+          } else {
+            document.execCommand(command, false, undefined);
+          }
+          this._updateToolbarState(toolbarButtons);
+        }
+      });
+    });
+
+    // Update toolbar state on selection change
+    editor.addEventListener('keyup', () => this._updateToolbarState(toolbarButtons));
+    editor.addEventListener('mouseup', () => this._updateToolbarState(toolbarButtons));
+
+    // Close modal handlers
+    const closeModal = (): void => {
+      if (this._richTextEditorModal) {
+        document.body.removeChild(this._richTextEditorModal);
+        this._richTextEditorModal = null;
+      }
+    };
+
+    closeButton.addEventListener('click', closeModal);
+    cancelButton.addEventListener('click', closeModal);
+
+    this._richTextEditorModal.addEventListener('click', (e) => {
+      if (e.target === this._richTextEditorModal) closeModal();
+    });
+
+    // Save content handler
+    saveButton.addEventListener('click', () => {
+      const content = editor.innerHTML;
+      this.properties.helpArticleHtml = content;
+      this.context.propertyPane.refresh();
+      closeModal();
+    });
+
+    // Focus editor
+    setTimeout(() => editor.focus(), 100);
+  }
+
+  private _updateToolbarState(toolbarButtons: NodeListOf<Element>): void {
+    toolbarButtons.forEach(button => {
+      const btn = button as HTMLButtonElement;
+      const command = btn.getAttribute('data-command');
+      
+      if (command && command !== 'formatBlock') {
+        if (document.queryCommandState(command)) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      }
+    });
   }
 
   private _showAddLinkModal(): void {
@@ -717,6 +841,10 @@ export default class UnifiedResourcesWebPart extends BaseClientSideWebPart<IUnif
     
     if (this._addLinkModal) {
       document.body.removeChild(this._addLinkModal);
+    }
+
+    if (this._richTextEditorModal) {
+      document.body.removeChild(this._richTextEditorModal);
     }
     
     super.onDispose();
@@ -1206,20 +1334,27 @@ export default class UnifiedResourcesWebPart extends BaseClientSideWebPart<IUnif
       groupFields: pageFields
     });
 
-    // Help content group
+    // Help content group - check for Edit permission
+    const userCanEdit = this.context.pageContext.web.permissions.hasPermission(SPPermission.editListItems);
+    
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const helpFields: IPropertyPaneField<any>[] = [
       PropertyPaneTextField('helpImageUrl', {
         label: 'Image URL (Optional)',
         description: 'Example: /sites/mysite/SiteAssets/help.png'
-      }),
-      PropertyPaneTextField('helpArticleHtml', {
-        label: 'Help Content',
-        description: 'Use **text** for bold, * for bullets, 1. for numbers',
-        multiline: true,
-        rows: 8
       })
     ];
+
+    // Only show Add Content button for users with Edit permission
+    if (userCanEdit) {
+      helpFields.push(
+        PropertyPaneButton('editHelpContent', {
+          text: '+ Add Content',
+          onClick: () => this._showRichTextEditorModal(),
+          buttonType: 1
+        })
+      );
+    }
 
     groups.push({
       groupName: 'Help Guide',
@@ -1227,7 +1362,6 @@ export default class UnifiedResourcesWebPart extends BaseClientSideWebPart<IUnif
     });
 
     // Add Link section (only visible if user has Edit permission)
-    const userCanEdit = this.context.pageContext.web.permissions.hasPermission(SPPermission.editListItems);
     if (userCanEdit) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const addLinkFields: IPropertyPaneField<any>[] = [
